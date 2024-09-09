@@ -10,6 +10,7 @@
     Tags: {
       aspnet.controller: route,
       aspnet.route: api/{controller}/{id},
+      component: aspnet,
       env: integration_tests,
       http.method: GET,
       http.request.headers.host: localhost:00000,
@@ -75,6 +76,7 @@
     Tags: {
       aspnet.controller: route,
       aspnet.route: api/{controller}/{id},
+      component: aspnet,
       env: integration_tests,
       http.method: GET,
       http.request.headers.host: localhost:00000,
@@ -140,6 +142,7 @@
     Tags: {
       aspnet.controller: route,
       aspnet.route: api/{controller}/{id},
+      component: aspnet,
       env: integration_tests,
       http.method: GET,
       http.request.headers.host: localhost:00000,
@@ -205,6 +208,7 @@
     Tags: {
       aspnet.controller: route,
       aspnet.route: api/{controller}/{id},
+      component: aspnet,
       env: integration_tests,
       http.method: GET,
       http.request.headers.host: localhost:00000,
@@ -270,6 +274,7 @@
     Tags: {
       aspnet.controller: route,
       aspnet.route: api/{controller}/{id},
+      component: aspnet,
       env: integration_tests,
       http.method: GET,
       http.request.headers.host: localhost:00000,
