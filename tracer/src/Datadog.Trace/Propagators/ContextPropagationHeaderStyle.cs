@@ -43,6 +43,12 @@ internal static class ContextPropagationHeaderStyle
     public const string B3SingleHeader = "b3 single header";
 
     /// <summary>
+    /// The W3C (and OpenTelemetry-compatible) baggage propagator.
+    /// Uses header: baggage.
+    /// </summary>
+    public const string Baggage = "baggage";
+
+    /// <summary>
     /// Deprecated values used to indicate propagation header styles.
     /// </summary>
     public static class Deprecated
