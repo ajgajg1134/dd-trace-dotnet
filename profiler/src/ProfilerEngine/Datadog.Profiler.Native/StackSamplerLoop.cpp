@@ -253,7 +253,13 @@ void StackSamplerLoop::WalltimeProfilingIteration()
         }
 
         // skip thread if it has a trace context
-        if (_targetThread->HasTraceContext() || !_targetThread->CanBeInterrupted())
+        auto shouldSkipThread =
+#ifdef LINUX
+            !_targetThread->CanBeInterrupted();
+#else
+            false;
+#endif;
+        if (_targetThread->HasTraceContext() || shouldSkipThread)
         {
             _targetThread.reset();
             continue;
@@ -374,7 +380,13 @@ void StackSamplerLoop::CodeHotspotIteration()
         }
 
         // skip if it has no trace context
-        if (!_targetThread->HasTraceContext() || !_targetThread->CanBeInterrupted())
+        auto shouldSkipThread =
+#ifdef LINUX
+            !_targetThread->CanBeInterrupted();
+#else
+            false;
+#endif;
+        if (!_targetThread->HasTraceContext() || shouldSkipThread)
         {
             _targetThread.reset();
             continue;

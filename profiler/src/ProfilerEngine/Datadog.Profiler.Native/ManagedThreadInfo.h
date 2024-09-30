@@ -22,12 +22,26 @@
 static constexpr int32_t MinFieldAlignRequirement = 8;
 static constexpr int32_t FieldAlignRequirement = (MinFieldAlignRequirement >= alignof(std::uint64_t)) ? MinFieldAlignRequirement : alignof(std::uint64_t);
 
-struct alignas(FieldAlignRequirement) TraceContextTrackingInfo
+enum class ThreadMetaInfo : std::uint64_t
+{
+    UnsafeToUnwind = 1
+};
+
+struct alignas(FieldAlignRequirement) TraceContextInfo
 {
 public:
     std::uint64_t _writeGuard;
     std::uint64_t _currentLocalRootSpanId;
     std::uint64_t _currentSpanId;
+    std::uint64_t _threadMetaInfo;
+};
+
+struct TraceContext
+{
+public:
+    static constexpr std::uint8_t Version = 2;
+
+    TraceContextInfo _impl;
 };
 
 struct ManagedThreadInfo : public IThreadInfo
@@ -37,6 +51,7 @@ private:
     static std::uint32_t GenerateProfilerThreadInfoId();
 
 public:
+
     explicit ManagedThreadInfo(ThreadID clrThreadId, ICorProfilerInfo4* pCorProfilerInfo);
     ~ManagedThreadInfo() = default;
 
@@ -83,7 +98,7 @@ public:
     inline void SetThreadDestroyed();
     inline std::pair<uint64_t, shared::WSTRING> SetBlockingThread(uint64_t osThreadId, shared::WSTRING name);
 
-    inline TraceContextTrackingInfo* GetTraceContextPointer();
+    inline TraceContextInfo* GetTraceContextPointer();
     inline std::uint64_t GetLocalRootSpanId() const;
     inline std::uint64_t GetSpanId() const;
     inline bool HasTraceContext() const;
@@ -96,8 +111,9 @@ public:
     inline void MarkAsInterrupted();
     inline int32_t SetTimerId(int32_t timerId);
     inline int32_t GetTimerId() const;
-#endif
     inline bool CanBeInterrupted() const;
+#endif
+    inline bool IsSafeToUnwind() const;
 
     inline AppDomainID GetAppDomainId();
 
@@ -134,23 +150,22 @@ private:
     Semaphore _stackWalkLock;
     bool _isThreadDestroyed;
 
-    TraceContextTrackingInfo _traceContextTrackingInfo;
+    TraceContext _traceContextTrackingInfo;
 
     //  strings to be used by samples: avoid allocations when rebuilding them over and over again
     std::string _profileThreadId;
     std::string _profileThreadName;
 
-    // Linux only
-    // This is pointer to a shared memory area coming from the Datadog.Linux.ApiWrapper library.
-    // This establishes a simple communication channel between the profiler and this library
-    // to know (for now, maybe more later) if the profiler interrupted a thread which was
-    // doing a syscalls.
-    volatile int* _sharedMemoryArea;
     ICorProfilerInfo4* _info;
     std::shared_mutex _threadIdMutex;
     std::shared_mutex _threadNameMutex;
 #ifdef LINUX
     std::int32_t _timerId;
+    // This is pointer to a shared memory area coming from the Datadog.Linux.ApiWrapper library.
+    // This establishes a simple communication channel between the profiler and this library
+    // to know (for now, maybe more later) if the profiler interrupted a thread which was
+    // doing a syscalls.
+    volatile int* _sharedMemoryArea;
 #endif
     uint64_t _blockingThreadId;
     shared::WSTRING _blockingThreadName;
@@ -414,24 +429,24 @@ inline std::pair<uint64_t, shared::WSTRING> ManagedThreadInfo::SetBlockingThread
     return {oldId, oldName};
 }
 
-inline TraceContextTrackingInfo* ManagedThreadInfo::GetTraceContextPointer()
+inline TraceContextInfo* ManagedThreadInfo::GetTraceContextPointer()
 {
-    return &_traceContextTrackingInfo;
+    return &_traceContextTrackingInfo._impl;
 }
 
 inline std::uint64_t ManagedThreadInfo::GetLocalRootSpanId() const
 {
-    return _traceContextTrackingInfo._currentLocalRootSpanId;
+    return _traceContextTrackingInfo._impl._currentLocalRootSpanId;
 }
 
 inline std::uint64_t ManagedThreadInfo::GetSpanId() const
 {
-    return _traceContextTrackingInfo._currentSpanId;
+    return _traceContextTrackingInfo._impl._currentSpanId;
 }
 
 inline bool ManagedThreadInfo::CanReadTraceContext() const
 {
-    bool canReadTraceContext = _traceContextTrackingInfo._writeGuard;
+    bool canReadTraceContext = _traceContextTrackingInfo._impl._writeGuard;
 
     // As said in the doc, on x86 (x86_64 including) this is a compiler fence.
     // In our case, it suffices. We have to make sure that reading this field is done
@@ -453,9 +468,16 @@ inline bool ManagedThreadInfo::HasTraceContext() const
     return false;
 }
 
+#ifdef LINUX
 inline bool ManagedThreadInfo::CanBeInterrupted() const
 {
     return _sharedMemoryArea == nullptr;
+}
+#endif
+
+inline bool ManagedThreadInfo::IsSafeToUnwind() const
+{
+    return (_traceContextTrackingInfo._impl._threadMetaInfo & static_cast<std::uint64_t>(ThreadMetaInfo::UnsafeToUnwind)) == 0;
 }
 
 #ifdef LINUX
